@@ -1,0 +1,7 @@
+{"timestamp": "2026-10-13T19:10:00+00:00", "project": "Client A: Site audit", "summary": "Approve the prioritized fix list before it goes to the client", "status": "waiting on you"}
+{"timestamp": "2026-10-13T16:05:00+00:00", "project": "Newsletter", "summary": "Drafted Thursday issue: 5 stories, 600 words", "status": "done", "agent": "Content Writer", "links": [{"label": "draft", "href": "newsletter/draft.md"}]}
+{"timestamp": "2026-10-13T14:30:00+00:00", "project": "Newsletter", "summary": "Header graphic v2 (v1 was too busy)", "status": "done", "agent": "Designer", "links": [{"label": "v2.svg", "href": "newsletter/header-v2.svg"}]}
+{"timestamp": "2026-10-13T11:20:00+00:00", "project": "Side project", "summary": "Pick a domain name from the 3-name shortlist", "status": "waiting on you"}
+{"timestamp": "2026-10-13T09:30:00+00:00", "project": "Client B: Landing page", "summary": "Headline and CTA copy, 3 variants", "status": "done", "agent": "Content Writer", "links": [{"label": "copy", "href": "landing/copy.md"}]}
+{"timestamp": "2026-10-12T18:15:00+00:00", "project": "Client B: Landing page", "summary": "Reply to the client's question on form fields", "status": "waiting on you"}
+{"timestamp": "2026-10-12T13:00:00+00:00", "project": "Client A: Site audit", "summary": "Speed check scheduled (testing quota hit), reruns at 6 AM", "status": "in progress"}

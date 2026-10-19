@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="240" viewBox="0 0 880 240">
+  <rect width="880" height="240" fill="#1c1b19"/>
+  <rect x="36" y="36" width="120" height="168" rx="8" fill="#e8a27c"/>
+  <rect x="172" y="36" width="120" height="168" rx="8" fill="#8fb0e0"/>
+  <text x="328" y="110" fill="#f3f0e8" font-family="Georgia, serif" font-size="42">Thursday notes</text>
+  <text x="328" y="154" fill="#b1ab9f" font-family="Georgia, serif" font-size="20">Header graphic, version 2</text>
+</svg>

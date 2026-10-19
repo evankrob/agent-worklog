@@ -1,0 +1,40 @@
+# Work Log config. Copy to worklog.toml and edit.
+# Paths are relative to this file unless they are absolute or start with ~/.
+# The server only binds to loopback. Nothing in this tool makes a network call.
+
+title = "Work Log"
+days = 14
+output = "site"
+# deliverables = "deliverables"
+host = "127.0.0.1"
+port = 8731
+
+# Case-insensitive regular expressions. A match drops the whole entry.
+exclude = [
+  "private-archive",
+]
+
+[project_names]
+# "folder-name" = "Friendly project name"
+
+[[sources]]
+id = "claude"
+label = "Claude"
+kind = "claude-code"
+# Omit paths to read ~/.claude and ~/.claude-work.
+paths = ["~/.claude", "~/.claude-work"]
+
+[[sources]]
+id = "grok"
+label = "Grok Bot"
+kind = "json"
+# A file, or a directory of .json and .jsonl files.
+paths = ["logs/grok.jsonl"]
+
+# Optional. Reads Claude desktop metadata on macOS only.
+# Set enabled = true after you have used Claude desktop on this Mac.
+[[sources]]
+id = "claude-desktop"
+label = "Claude Desktop"
+kind = "claude-desktop"
+enabled = false

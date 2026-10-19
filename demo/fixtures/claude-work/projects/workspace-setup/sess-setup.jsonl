@@ -1,0 +1,2 @@
+{"type": "user", "timestamp": "2026-10-12T09:12:00+00:00", "cwd": "/home/demo/workspace-setup", "message": {"role": "user", "content": [{"type": "text", "text": "Set up the workspace ignore rules and the local preview"}]}}
+{"type": "assistant", "timestamp": "2026-10-12T09:40:00+00:00", "cwd": "/home/demo/workspace-setup", "message": {"role": "assistant", "content": [{"type": "tool_use", "name": "Write", "input": {"file_path": "/home/demo/workspace-setup/notes/setup.md", "content": "setup notes that stay in the transcript"}}]}}

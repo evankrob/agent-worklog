@@ -1,0 +1,1 @@
+{"type": "user", "timestamp": "2026-10-13T20:50:00+00:00", "cwd": "/home/demo/client-a-site-audit", "message": {"role": "user", "content": [{"type": "text", "text": "SUBAGENT_SHOULD_BE_IGNORED"}]}}

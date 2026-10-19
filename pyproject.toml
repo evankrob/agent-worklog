@@ -1,0 +1,28 @@
+[project]
+name = "worklog"
+version = "1.0.0"
+description = "Local start page for what your AI agents did"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [{name = "Work Log contributors"}]
+keywords = ["agents", "dashboard", "privacy", "claude"]
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Environment :: Console",
+  "Operating System :: OS Independent",
+  "Topic :: Utilities",
+]
+dependencies = []
+
+[project.scripts]
+worklog = "worklog.cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["worklog*"]

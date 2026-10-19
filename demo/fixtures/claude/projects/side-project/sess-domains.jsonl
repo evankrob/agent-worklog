@@ -1,0 +1,2 @@
+{"type": "user", "timestamp": "2026-10-13T11:05:00+00:00", "cwd": "/home/demo/side-project", "message": {"role": "user", "content": [{"type": "text", "text": "Collected a 3-name domain shortlist for the side project"}]}}
+{"type": "assistant", "timestamp": "2026-10-13T11:22:00+00:00", "cwd": "/home/demo/side-project", "message": {"role": "assistant", "content": [{"type": "tool_use", "name": "Write", "input": {"file_path": "/home/demo/side-project/notes/domains.md", "content": "shortlist body that stays in the transcript"}}]}}

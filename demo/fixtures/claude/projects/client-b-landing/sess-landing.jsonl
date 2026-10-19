@@ -1,0 +1,2 @@
+{"type": "user", "timestamp": "2026-10-13T15:10:00+00:00", "cwd": "/home/demo/client-b-landing", "message": {"role": "user", "content": [{"type": "text", "text": "Built a demo landing page with a lead form and a countdown"}]}}
+{"type": "assistant", "timestamp": "2026-10-13T15:44:00+00:00", "cwd": "/home/demo/client-b-landing", "message": {"role": "assistant", "content": [{"type": "tool_use", "name": "Write", "input": {"file_path": "/home/demo/client-b-landing/preview/index.html", "content": "<!-- fictional page body, not for the log -->"}}]}}
