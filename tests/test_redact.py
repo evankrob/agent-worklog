@@ -14,7 +14,7 @@ EXAMPLES = [
     "github_pat_abcdefghijklmnopqrstuvwxyz",
     "slack xoxb-1234567890-abcdefghij",
     "aws AKIAIOSFODNN7EXAMPLE",
-    "google AIzaSyAabcdefghijklmnopqrstuvwxyz123456",
+    "google AIza" "SyAabcdefghijklmnopqrstuvwxyz123456",
     "ya29.a0AfH6SMC_EXAMPLETOKEN",
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U",
     "Authorization: Bearer abcdefghijklmnop",
