@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from worklog.ops import OpsError, default_ops_links, default_ops_steps, normalize_ops_links, normalize_ops_steps
 from worklog.redact import compile_excludes
 from worklog.tomlutil import TomlError, loads as load_toml
 
@@ -42,6 +43,8 @@ class Config:
     sources: list[Source]
     path: Path
     exclude_res: list = field(default_factory=list)
+    ops_links: list = field(default_factory=list)
+    ops_steps: list = field(default_factory=list)
 
     def source(self, source_id: str) -> Source | None:
         for item in self.sources:
@@ -132,6 +135,18 @@ def _build(path: Path, data: dict) -> Config:
     if len(ids) != len(set(ids)):
         raise ConfigError("source ids must be unique")
 
+    try:
+        if "ops_links" in data:
+            ops_links = normalize_ops_links(data.get("ops_links"))
+        else:
+            ops_links = default_ops_links()
+        if "ops_steps" in data:
+            ops_steps = normalize_ops_steps(data.get("ops_steps"))
+        else:
+            ops_steps = default_ops_steps()
+    except OpsError as exc:
+        raise ConfigError(str(exc)) from exc
+
     cfg = Config(
         title=title,
         days=days,
@@ -144,6 +159,8 @@ def _build(path: Path, data: dict) -> Config:
         sources=sources,
         path=path,
         exclude_res=exclude_res,
+        ops_links=ops_links,
+        ops_steps=ops_steps,
     )
     return cfg
 

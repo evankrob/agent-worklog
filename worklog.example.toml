@@ -38,3 +38,13 @@ id = "claude-desktop"
 label = "Claude Desktop"
 kind = "claude-desktop"
 enabled = false
+
+# Optional SEO Ops tab. Omit both to keep the built-in links and steps.
+# [[ops_links]]
+# label = "SEO skills repo"
+# href = "https://github.com/evankrob/seo-skills"
+# note = "Master SEO skill pipeline."
+#
+# ops_steps = [
+#   "Clone or pull evankrob/seo-skills.",
+# ]

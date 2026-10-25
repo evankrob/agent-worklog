@@ -161,7 +161,66 @@ class RenderTests(unittest.TestCase):
     def test_empty_state(self):
         html = render_html(_doc([]))
         self.assertIn("Nothing in the last 14 days.", html)
-        self.assertNotIn("<h3>", html)
+        work = html.split('id="view-work"')[1].split('id="view-ops"')[0]
+        self.assertNotIn("<h3>", work)
+
+    def test_seo_ops_tab_has_links_and_run_guide(self):
+        html = render_html(_doc([]))
+        self.assertIn('id="tab-work"', html)
+        self.assertIn('id="tab-ops"', html)
+        self.assertIn(">SEO Ops<", html)
+        self.assertIn('id="view-work"', html)
+        self.assertIn('id="view-ops"', html)
+        self.assertIn('data-view-tab="ops"', html)
+        self.assertIn("worklog-view", html)
+        self.assertIn('html[data-view="ops"]', html)
+        for url in (
+            "https://github.com/evankrob/seo-skills",
+            "https://github.com/evankrob/openlocalseo",
+            "https://github.com/evankrob/agent-worklog",
+            "http://localhost:5173",
+        ):
+            self.assertIn('href="%s"' % url, html)
+            self.assertIn('target="_blank"', html)
+            self.assertIn('rel="noopener noreferrer"', html)
+        self.assertIn("npm install", html)
+        self.assertIn("cp .env.example .env", html)
+        self.assertIn("npm run db:reset:local", html)
+        self.assertIn("npm run dev", html)
+        self.assertIn("Mock data is the default.", html)
+        self.assertIn("Cloudflare self-host is a separate section in that README.", html)
+        self.assertIn("Inspired by open-seo; not a fork of its code.", html)
+        self.assertIn("7×7", html)
+        for snippet in (
+            "pip install -r requirements.txt",
+            "build_profile.py init",
+            "--quick",
+            "--citations-json",
+            "--gbp-json",
+            "--dataforseo-gbp",
+            "Do not run",
+            "--grid",
+            "--prior-findings",
+            "audit_to_tasks",
+            "dry run only",
+        ):
+            self.assertIn(snippet, html)
+        self.assertIn(
+            "Registered Grok Bot skills: "
+            "<code>seo-client-profile</code>, "
+            "<code>seo-audit-technical</code>, "
+            "<code>seo-audit-content</code>, "
+            "<code>seo-audit-local</code>, "
+            "<code>seo-audit-links</code>, "
+            "<code>seo-audit-report</code>, "
+            "<code>audit-to-tasks</code>",
+            html,
+        )
+        self.assertNotIn("<script src=", html)
+        self.assertNotIn("fonts.google", html)
+        # The log columns stay in the work panel.
+        self.assertLess(html.index('id="view-work"'), html.index('id="view-ops"'))
+        self.assertLess(html.index('id="tab-work"'), html.index('id="view-work"'))
 
 
 class BuildAndServeTests(unittest.TestCase):
@@ -187,6 +246,40 @@ class BuildAndServeTests(unittest.TestCase):
             # Absolute paths from the fixtures are not required on the page.
             self.assertNotIn("/home/demo/", html)
             self.assertNotIn("Waiting on you (", html)
+            self.assertIn('id="tab-ops"', html)
+            self.assertIn("https://github.com/evankrob/seo-skills", html)
+            self.assertIn("https://github.com/evankrob/openlocalseo", html)
+            self.assertIn("https://github.com/evankrob/agent-worklog", html)
+            self.assertIn("build_profile.py", html)
+
+    def test_custom_ops_links_replace_the_default_list(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "notes.jsonl").write_text("", encoding="utf-8")
+            payload = {
+                "title": "Work Log",
+                "output": "site",
+                "ops_steps": ["Custom step with <b>markup</b> and `npm test`"],
+                "ops_links": [
+                    {"label": "Notes", "href": "https://example.com/notes", "note": "hello `there`"}
+                ],
+                "sources": [{"id": "notes", "label": "Notes", "kind": "json", "paths": ["notes.jsonl"]}],
+            }
+            (root / "worklog.json").write_text(json.dumps(payload), encoding="utf-8")
+            cfg = load_config(root / "worklog.json")
+            destination, _document = build_site(cfg, now=NOW)
+            html = (destination / "index.html").read_text(encoding="utf-8")
+            log = (destination / "log.json").read_text(encoding="utf-8")
+            listed = html.split('<ul class="ops-links">')[1].split("</ul>")[0]
+            self.assertIn('href="https://example.com/notes"', listed)
+            self.assertIn("<code>there</code>", listed)
+            self.assertNotIn("seo-skills", listed)
+            self.assertIn('href="https://github.com/evankrob/seo-skills"', html)
+            self.assertIn("Custom step with &lt;b&gt;markup&lt;/b&gt;", html)
+            self.assertIn("<code>npm test</code>", html)
+            self.assertNotIn("<b>markup</b>", html)
+            self.assertNotIn("example.com/notes", log)
+            self.assertNotIn("ops_links", log)
 
     def test_traversal_is_not_copied(self):
         with TemporaryDirectory() as tmp:

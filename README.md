@@ -32,6 +32,7 @@ python3 -m worklog serve
 - Day groups, newest first, with **Today** and **Yesterday** labeled in the machine's timezone.
 - Status badges (`done`, `waiting on you`, `in progress`), the agent or role, and links to deliverables.
 - A light theme and a dark theme. The first paint follows the system setting. The button on the page remembers your choice in `localStorage`.
+- **Work** and **SEO Ops** tabs on the same page. Work is the log. SEO Ops lists the SEO repos (they open in a new tab), the OpenLocalSEO install commands, and a numbered guide for the seo-skills audit pipeline. The selected tab is stored in `localStorage` (`worklog-view`). The browser extension still opens this one `index.html`.
 
 There is no total of sessions, files, or entries at the top.
 
@@ -80,6 +81,19 @@ enabled = true
 Omit `paths` on a Claude Code source to use `~/.claude` and `~/.claude-work`. Omit them on a Claude desktop source to use `~/Library/Application Support/Claude` on macOS. On other systems that default is skipped unless you set an explicit path (a fixture directory, for tests).
 
 `project_names` maps a folder name, such as the last part of a session's working directory, to the label on the page. Chip order follows this table, then any other projects alphabetically.
+
+`ops_links` and `ops_steps` are optional. Leave them out and the SEO Ops tab uses the built-in GitHub links and the eight-step audit run. Set `[[ops_links]]` (`label`, `href`, and an optional `note`) or `ops_steps` (a list of strings) to replace that list. `href` must be `http` or `https`. A value that looks like a secret is a config error. The OpenLocalSEO install notes and the registered skill names stay on the page either way.
+
+```toml
+[[ops_links]]
+label = "SEO skills repo"
+href = "https://github.com/evankrob/seo-skills"
+note = "Master SEO skill pipeline."
+
+ops_steps = [
+  "Clone or pull evankrob/seo-skills, then pip install -r requirements.txt.",
+]
+```
 
 ## A log any agent can append
 
