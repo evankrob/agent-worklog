@@ -21,6 +21,9 @@ def build_site(cfg: Config, now=None) -> Path:
     destination = cfg.output
     destination.mkdir(parents=True, exist_ok=True)
     copied = _copy_deliverables(document["entries"], root, destination)
+    # UI config, not part of the redacted log written beside the page.
+    document["ops_links"] = [dict(item) for item in cfg.ops_links]
+    document["ops_steps"] = list(cfg.ops_steps)
     page = render_html(document)
     (destination / "index.html").write_text(page, encoding="utf-8")
     public = {

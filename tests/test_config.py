@@ -8,6 +8,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from worklog.config import ConfigError, load_config
+from worklog.ops import default_ops_links, default_ops_steps
 from worklog.tomlutil import TomlError, loads
 
 
@@ -135,6 +136,64 @@ class ConfigTests(unittest.TestCase):
             self.assertFalse(cfg.sources[0].explicit_paths)
             self.assertEqual(cfg.sources[0].paths[0], Path.home() / ".claude")
             self.assertEqual(cfg.sources[0].paths[1], Path.home() / ".claude-work")
+
+    def test_ops_defaults_when_omitted_and_replacements_when_set(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "worklog.toml").write_text(SAMPLE, encoding="utf-8")
+            cfg = load_config(root / "worklog.toml")
+            self.assertEqual(cfg.ops_links, default_ops_links())
+            self.assertEqual(cfg.ops_steps, default_ops_steps())
+            self.assertEqual(len(cfg.ops_steps), 8)
+            custom = """
+title = "Work Log"
+ops_steps = [
+  "Only this step",
+  " ",
+]
+[[ops_links]]
+label = "Notes"
+href = "https://example.com/notes"
+note = "A note"
+
+[[sources]]
+id = "notes"
+kind = "json"
+paths = ["notes.jsonl"]
+"""
+            (root / "custom.toml").write_text(custom, encoding="utf-8")
+            custom_cfg = load_config(root / "custom.toml")
+            self.assertEqual(custom_cfg.ops_steps, ["Only this step"])
+            self.assertEqual(
+                custom_cfg.ops_links,
+                [{"label": "Notes", "href": "https://example.com/notes", "note": "A note"}],
+            )
+            cleared = {"ops_steps": [], "ops_links": [], "sources": []}
+            (root / "cleared.json").write_text(json.dumps(cleared), encoding="utf-8")
+            cleared_cfg = load_config(root / "cleared.json")
+            self.assertEqual(cleared_cfg.ops_steps, [])
+            self.assertEqual(cleared_cfg.ops_links, [])
+
+    def test_rejects_unsafe_ops_links(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / "worklog.json"
+
+            def check(payload, fragment):
+                path.write_text(json.dumps(payload), encoding="utf-8")
+                with self.assertRaises(ConfigError) as caught:
+                    load_config(path)
+                self.assertIn(fragment, str(caught.exception))
+
+            check({"ops_links": [{"label": "x", "href": "javascript:alert(1)"}], "sources": []}, "href")
+            check({"ops_links": [{"label": "x", "href": "file:///etc/passwd"}], "sources": []}, "href")
+            check({"ops_links": [{"label": "x", "href": "https://user:pw@example.com/a"}], "sources": []}, "href")
+            check({"ops_links": "https://example.com", "sources": []}, "ops_links")
+            check({"ops_steps": [1], "sources": []}, "ops_steps")
+            check(
+                {"ops_links": [{"label": "x", "href": "https://example.com", "note": "password = hunter2"}], "sources": []},
+                "secret",
+            )
 
     def test_tilde_expands(self):
         with TemporaryDirectory() as tmp:

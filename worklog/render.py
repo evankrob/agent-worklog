@@ -1,8 +1,8 @@
 """Render the redacted log as one static HTML page.
 
-The page is self-contained: no remote fonts, scripts, or images. Project
-chips are the only client-side behavior, and they only show or hide rows
-that are already in the file.
+The page is self-contained: no remote fonts, scripts, or images. The
+browser only toggles the theme, the project chips, and the Work / SEO Ops
+tabs. Those controls show or hide markup that is already in the file.
 """
 
 from __future__ import annotations
@@ -10,6 +10,14 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from worklog.model import FILES_DISPLAY, aware, parse_iso, window_bounds
+from worklog.ops import (
+    LOCAL_APP_URL,
+    OPENLOCALSEO_URL,
+    OPS_SKILLS,
+    SEO_SKILLS_URL,
+    default_ops_links,
+    default_ops_steps,
+)
 
 _ACCENTS = ("a0", "a1", "a2", "a3", "a4", "a5")
 
@@ -32,6 +40,8 @@ def render_html(document: dict) -> str:
     waiting = [entry for entry in entries if entry.get("status") == "waiting"]
     waiting.sort(key=lambda entry: entry.get("end") or "", reverse=True)
     days_html = _days_html(entries, sources, now)
+    links = document["ops_links"] if "ops_links" in document else default_ops_links()
+    steps = document["ops_steps"] if "ops_steps" in document else default_ops_steps()
     parts = [
         "<!doctype html>",
         '<html lang="en">',
@@ -55,6 +65,11 @@ def render_html(document: dict) -> str:
         "</div>",
         '<button type="button" id="theme" aria-pressed="false">Dark</button>',
         "</header>",
+        '<div class="views" role="tablist" aria-label="Views">',
+        '<button type="button" class="view on" id="tab-work" data-view-tab="work" role="tab" aria-selected="true" aria-controls="view-work">Work</button>',
+        '<button type="button" class="view" id="tab-ops" data-view-tab="ops" role="tab" aria-selected="false" aria-controls="view-ops" tabindex="-1">SEO Ops</button>',
+        "</div>",
+        '<div id="view-work" role="tabpanel" aria-labelledby="tab-work">',
     ]
     if not entries:
         parts.append('<p class="empty-page">Nothing in the last %d days.</p>' % days)
@@ -76,9 +91,73 @@ def render_html(document: dict) -> str:
             '<p class="empty-page" id="empty-filter" hidden>Nothing in this project for the last %d days.</p>'
             % days
         )
+    parts.append("</div>")
+    parts.append(_ops_html(links, steps))
     parts.append("<script>%s</script>" % _FILTER_SCRIPT)
     parts.append("</body></html>\n")
     return "\n".join(parts)
+
+
+def _ops_html(links: list, steps: list) -> str:
+    items = []
+    for link in links or []:
+        if not isinstance(link, dict):
+            continue
+        href = link.get("href") or ""
+        label = link.get("label") or href or "link"
+        note = link.get("note") or ""
+        note_html = '<span class="ops-note">%s</span>' % _rich(note) if note else ""
+        items.append(
+            '<li><a href="%s" target="_blank" rel="noopener noreferrer">%s</a>%s</li>'
+            % (esc(href), _rich(label), note_html)
+        )
+    if items:
+        link_body = '<ul class="ops-links">%s</ul>' % "".join(items)
+    else:
+        link_body = '<p class="ops-note">No links configured.</p>'
+    if steps:
+        step_body = "<ol>%s</ol>" % "".join("<li>%s</li>" % _rich(step) for step in steps)
+    else:
+        step_body = '<p class="ops-note">No steps configured.</p>'
+    skills = ", ".join("<code>%s</code>" % esc(name) for name in OPS_SKILLS)
+    install = (
+        "npm install\n"
+        "cp .env.example .env\n"
+        "npm run db:reset:local\n"
+        "npm run dev"
+    )
+    return (
+        '<section id="view-ops" class="ops" role="tabpanel" aria-labelledby="tab-ops" hidden>'
+        "<h2>Important links</h2>"
+        "%s"
+        "<h2>OpenLocalSEO</h2>"
+        "<p>Map-grid rank tracker. A 7×7 grid is fine for now. This product is separate from the seo-skills audit pipeline. Inspired by open-seo; not a fork of its code.</p>"
+        "<h3>Install / quick start</h3>"
+        '<p>Clone <a href="%s" target="_blank" rel="noopener noreferrer">evankrob/openlocalseo</a>, then:</p>'
+        "<pre><code>%s</code></pre>"
+        '<p>Opens <a href="%s" target="_blank" rel="noopener noreferrer">%s</a>. Mock data is the default. Cloudflare self-host is a separate section in that README.</p>'
+        "<h2>How to run an audit</h2>"
+        '<p>From the <a href="%s" target="_blank" rel="noopener noreferrer">seo-skills</a> README, “How to run”.</p>'
+        "%s"
+        "<h2>On this machine</h2>"
+        "<p>Registered Grok Bot skills: %s</p>"
+        "</section>"
+    ) % (link_body, esc(OPENLOCALSEO_URL), esc(install), esc(LOCAL_APP_URL), esc(LOCAL_APP_URL), esc(SEO_SKILLS_URL), step_body, skills)
+
+
+def _rich(value: object) -> str:
+    """Escape text, and turn paired `backticks` into code."""
+    text = "" if value is None else str(value)
+    parts = text.split("`")
+    if len(parts) == 1 or len(parts) % 2 == 0:
+        return esc(text)
+    rendered = []
+    for index, part in enumerate(parts):
+        if index % 2:
+            rendered.append("<code>%s</code>" % esc(part))
+        else:
+            rendered.append(esc(part))
+    return "".join(rendered)
 
 
 def esc(value: object) -> str:
@@ -304,6 +383,8 @@ _HEAD_SCRIPT = """
     document.documentElement.setAttribute("data-theme", theme);
     var meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute("content", theme === "dark" ? "#141412" : "#f3f1eb");
+    var view = localStorage.getItem("worklog-view");
+    if (view === "ops" || view === "work") document.documentElement.setAttribute("data-view", view);
   } catch (e) {}
 })();
 """.strip()
@@ -366,6 +447,37 @@ _FILTER_SCRIPT = """
   document.querySelectorAll(".chip").forEach(function (chip) {
     chip.addEventListener("click", function () {
       applyFilter(chip.getAttribute("data-project") || "All");
+    });
+  });
+
+  var tabs = Array.prototype.slice.call(document.querySelectorAll("[data-view-tab]"));
+  function applyView(name) {
+    var ops = name === "ops";
+    root.setAttribute("data-view", ops ? "ops" : "work");
+    try { localStorage.setItem("worklog-view", ops ? "ops" : "work"); } catch (e) {}
+    var work = document.getElementById("view-work");
+    var panel = document.getElementById("view-ops");
+    if (work) work.hidden = ops;
+    if (panel) panel.hidden = !ops;
+    tabs.forEach(function (tab) {
+      var on = tab.getAttribute("data-view-tab") === (ops ? "ops" : "work");
+      tab.classList.toggle("on", on);
+      tab.setAttribute("aria-selected", on ? "true" : "false");
+      tab.tabIndex = on ? 0 : -1;
+    });
+  }
+  applyView(root.getAttribute("data-view") === "ops" ? "ops" : "work");
+  tabs.forEach(function (tab, index) {
+    tab.addEventListener("click", function () {
+      applyView(tab.getAttribute("data-view-tab") || "work");
+    });
+    tab.addEventListener("keydown", function (event) {
+      if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+      event.preventDefault();
+      var next = event.key === "ArrowRight" ? (index + 1) % tabs.length : (index - 1 + tabs.length) % tabs.length;
+      var target = tabs[next];
+      applyView(target.getAttribute("data-view-tab") || "work");
+      target.focus();
     });
   });
 })();
@@ -460,6 +572,8 @@ html[data-theme="dark"] {
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
+html[data-view="ops"] #view-work { display: none !important; }
+html[data-view="ops"] #view-ops { display: block !important; }
 html, body { margin: 0; }
 body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
@@ -486,8 +600,9 @@ h1 { font-size: 22px; line-height: 1.2; font-weight: 650; letter-spacing: -0.02e
   font-size: 13px;
   cursor: pointer;
 }
+.views { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; }
-.chip {
+.chip, .view {
   border: 1px solid var(--chip-line);
   background: var(--chip);
   color: var(--ink);
@@ -497,8 +612,50 @@ h1 { font-size: 22px; line-height: 1.2; font-weight: 650; letter-spacing: -0.02e
   font-size: 13px;
   cursor: pointer;
 }
-.chip:hover { border-color: var(--ink); }
-.chip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.chip:hover, .view:hover { border-color: var(--ink); }
+.chip.on, .view.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.ops { max-width: 42rem; }
+.ops h2 {
+  font-size: 15px;
+  font-weight: 650;
+  margin: 22px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.ops h2:first-child { margin-top: 2px; }
+.ops h3 { margin: 14px 0 6px; font-size: 13px; font-weight: 650; }
+.ops p { margin: 0 0 8px; font-size: 14.5px; }
+.ops ol { margin: 0 0 8px; padding-left: 1.3rem; }
+.ops li { margin: 6px 0; font-size: 14.5px; }
+.ops-links { list-style: none; margin: 0; padding: 0; }
+.ops-links li {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 8px 0;
+}
+.ops-links a { font-weight: 650; }
+.ops-note, .ops p.ops-note { color: var(--muted); font-size: 13px; }
+.ops-links .ops-note { display: block; margin-top: 3px; }
+.ops code, .ops pre {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 12.5px;
+}
+.ops code {
+  background: var(--other-bg);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+.ops pre {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  margin: 8px 0 10px;
+}
+.ops pre code { background: transparent; padding: 0; }
 .wait {
   background: var(--wait-bg);
   border: 1px solid var(--wait-line);
@@ -588,6 +745,7 @@ a { color: var(--link); text-underline-offset: 2px; }
 }
 @media (max-width: 760px) {
   body { padding: 16px 14px 48px; }
+  .top { flex-wrap: wrap; }
   .n1, .n2, .n3, .n4, .n5, .n6 { grid-template-columns: minmax(0, 1fr); }
   .e { grid-template-columns: 76px minmax(0, 1fr); gap: 6px; }
 }
