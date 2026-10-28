@@ -94,6 +94,9 @@ id = "grok"
 label = "Grok Bot"
 kind = "json"
 paths = ["logs/grok.jsonl"]
+
+# Projects tab: omit [[projects]] to use the built-in own-product list.
+# Set [[projects]] to replace that list. See the README.
 """
     (root / "worklog.toml").write_text(text, encoding="utf-8")
 

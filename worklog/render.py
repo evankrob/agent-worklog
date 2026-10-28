@@ -1,8 +1,9 @@
 """Render the redacted log as one static HTML page.
 
 The page is self-contained: no remote fonts, scripts, or images. The
-browser only toggles the theme, the project chips, and the Work / SEO Ops
-tabs. Those controls show or hide markup that is already in the file.
+browser only toggles the theme, the project chips, the Work / SEO Ops /
+Projects tabs, and which project is open. Those controls show or hide markup
+that is already in the file.
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from worklog.ops import (
     default_ops_links,
     default_ops_steps,
 )
+from worklog.projects import default_projects
 
 _ACCENTS = ("a0", "a1", "a2", "a3", "a4", "a5")
 
@@ -42,6 +44,7 @@ def render_html(document: dict) -> str:
     days_html = _days_html(entries, sources, now)
     links = document["ops_links"] if "ops_links" in document else default_ops_links()
     steps = document["ops_steps"] if "ops_steps" in document else default_ops_steps()
+    board = document["projects"] if "projects" in document else default_projects()
     parts = [
         "<!doctype html>",
         '<html lang="en">',
@@ -55,7 +58,7 @@ def render_html(document: dict) -> str:
         "<title>%s</title>" % esc(title),
         '<link rel="icon" href="%s">' % _FAVICON,
         "<script>%s</script>" % _HEAD_SCRIPT,
-        "<style>%s</style>" % _CSS,
+        "<style>%s\n%s</style>" % (_CSS, _project_pick_css(board)),
         "</head>",
         '<body class="%s">' % ("wide" if len(sources) >= 3 else ""),
         '<header class="top">',
@@ -68,6 +71,7 @@ def render_html(document: dict) -> str:
         '<div class="views" role="tablist" aria-label="Views">',
         '<button type="button" class="view on" id="tab-work" data-view-tab="work" role="tab" aria-selected="true" aria-controls="view-work">Work</button>',
         '<button type="button" class="view" id="tab-ops" data-view-tab="ops" role="tab" aria-selected="false" aria-controls="view-ops" tabindex="-1">SEO Ops</button>',
+        '<button type="button" class="view" id="tab-projects" data-view-tab="projects" role="tab" aria-selected="false" aria-controls="view-projects" tabindex="-1">Projects</button>',
         "</div>",
         '<div id="view-work" role="tabpanel" aria-labelledby="tab-work">',
     ]
@@ -93,6 +97,7 @@ def render_html(document: dict) -> str:
         )
     parts.append("</div>")
     parts.append(_ops_html(links, steps))
+    parts.append(_projects_html(board))
     parts.append("<script>%s</script>" % _FILTER_SCRIPT)
     parts.append("</body></html>\n")
     return "\n".join(parts)
@@ -143,6 +148,183 @@ def _ops_html(links: list, steps: list) -> str:
         "<p>Registered Grok Bot skills: %s</p>"
         "</section>"
     ) % (link_body, esc(OPENLOCALSEO_URL), esc(install), esc(LOCAL_APP_URL), esc(LOCAL_APP_URL), esc(SEO_SKILLS_URL), step_body, skills)
+
+
+def _projects_html(projects: list) -> str:
+    panels = []
+    nav = [
+        '<nav class="proj-nav" role="tablist" aria-label="Own projects">',
+        '<p class="proj-kicker">Own projects</p>',
+    ]
+    for project in projects or []:
+        if not isinstance(project, dict):
+            continue
+        nav.append(_project_nav(project))
+        panels.append(_project_panel(project))
+    nav.append("</nav>")
+    if not panels:
+        return (
+            '<section id="view-projects" class="projects" role="tabpanel" aria-labelledby="tab-projects" hidden>'
+            '<p class="empty-page">No projects in the config.</p>'
+            "</section>"
+        )
+    return (
+        '<section id="view-projects" class="projects" role="tabpanel" aria-labelledby="tab-projects" hidden>'
+        '<div class="proj-shell">%s<div class="proj-main">%s</div></div>'
+        "</section>"
+    ) % ("".join(nav), "".join(panels))
+
+
+def _project_nav(project: dict) -> str:
+    project_id = str(project.get("id") or "")
+    status = str(project.get("status") or "")
+    name = project.get("name") or project_id
+    return (
+        '<button type="button" class="proj-item" id="proj-tab-%s" data-project-nav="%s" '
+        'role="tab" aria-selected="false" aria-controls="project-%s" tabindex="-1">'
+        '<span class="dot %s" aria-hidden="true"></span>'
+        '<span class="nm">%s</span>'
+        '<span class="mini">%s</span>'
+        "</button>"
+    ) % (
+        esc(project_id),
+        esc(project_id),
+        esc(project_id),
+        esc(status),
+        esc(name),
+        esc(status),
+    )
+
+
+def _project_panel(project: dict) -> str:
+    project_id = str(project.get("id") or "")
+    status = str(project.get("status") or "")
+    updated = str(project.get("updated") or "")
+    meta = '<span class="sp %s"><span class="dot" aria-hidden="true"></span>%s</span>' % (
+        esc(status),
+        esc(status),
+    )
+    if updated:
+        meta += '<time datetime="%s">Updated %s</time>' % (esc(updated), esc(_fmt_iso_day(updated)))
+    parts = [
+        (
+            '<article class="proj-detail" id="project-%s" data-project-panel="%s" '
+            'role="tabpanel" aria-labelledby="proj-tab-%s" hidden>'
+        )
+        % (esc(project_id), esc(project_id), esc(project_id)),
+        '<h2 class="proj-title">%s</h2>' % esc(project.get("name") or project_id),
+        '<div class="state-card %s">' % esc(status),
+        '<p class="eyebrow">Current state</p>',
+        '<p class="state">%s</p>' % esc(project.get("state") or ""),
+        "</div>",
+        '<p class="proj-meta">%s</p>' % meta,
+    ]
+    links = _project_links(project.get("links") or [])
+    if links:
+        parts.append("<h3>Links</h3>")
+        parts.append(links)
+    metrics = _project_metrics(project.get("metrics") or [])
+    if metrics:
+        parts.append("<h3>Metrics</h3>")
+        parts.append(metrics)
+    timeline = _project_timeline(project.get("timeline") or [])
+    if timeline:
+        parts.append("<h3>Recent</h3>")
+        parts.append(timeline)
+    parts.append("</article>")
+    return "".join(parts)
+
+
+def _project_links(links: list) -> str:
+    items = []
+    for link in links:
+        if not isinstance(link, dict):
+            continue
+        href = link.get("href") or ""
+        if not href:
+            continue
+        label = link.get("label") or href
+        items.append(
+            '<a href="%s" target="_blank" rel="noopener noreferrer">%s</a>'
+            % (esc(href), esc(label))
+        )
+    if not items:
+        return ""
+    return '<div class="proj-links">%s</div>' % "".join(items)
+
+
+def _project_metrics(metrics: list) -> str:
+    cards = []
+    for metric in metrics:
+        if not isinstance(metric, dict):
+            continue
+        label = metric.get("label") or ""
+        value = metric.get("value") or ""
+        if not label and not value:
+            continue
+        cards.append(
+            '<div class="metric"><span class="k">%s</span><span class="v">%s</span></div>'
+            % (esc(label), esc(value))
+        )
+    if not cards:
+        return ""
+    return '<div class="metrics">%s</div>' % "".join(cards)
+
+
+def _project_timeline(events: list) -> str:
+    rows = []
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        what = event.get("what") or ""
+        if not what:
+            continue
+        when = str(event.get("when") or "")
+        if when:
+            stamp = '<time datetime="%s">%s</time>' % (esc(when), esc(_fmt_iso_day(when)))
+        else:
+            stamp = "<time></time>"
+        rows.append("<li>%s<span class=\"what\">%s</span></li>" % (stamp, esc(what)))
+    if not rows:
+        return ""
+    return '<ol class="timeline">%s</ol>' % "".join(rows)
+
+
+_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def _fmt_iso_day(iso: str) -> str:
+    parts = str(iso).split("-")
+    if len(parts) != 3 or not all(part.isdigit() for part in parts):
+        return str(iso)
+    year, month, day = (int(part) for part in parts)
+    if not 1 <= month <= 12 or not 1 <= day <= 31:
+        return str(iso)
+    return "%s %d, %d" % (_MONTHS[month - 1], day, year)
+
+
+def _project_pick_css(projects: list) -> str:
+    rules = []
+    for project in projects or []:
+        if not isinstance(project, dict):
+            continue
+        project_id = str(project.get("id") or "")
+        if not project_id or not _css_id(project_id):
+            continue
+        rules.append(
+            'html[data-project="%s"] [data-project-panel="%s"] { display: block !important; }'
+            % (project_id, project_id)
+        )
+        rules.append(
+            'html[data-project="%s"] [data-project-nav="%s"] {'
+            " background: var(--nav-on); border-color: var(--line); }"
+            % (project_id, project_id)
+        )
+    return "\n".join(rules)
+
+
+def _css_id(value: str) -> bool:
+    return all(char.isalnum() or char in "_-" for char in value)
 
 
 def _rich(value: object) -> str:
@@ -384,7 +566,14 @@ _HEAD_SCRIPT = """
     var meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute("content", theme === "dark" ? "#141412" : "#f3f1eb");
     var view = localStorage.getItem("worklog-view");
-    if (view === "ops" || view === "work") document.documentElement.setAttribute("data-view", view);
+    if (view === "ops" || view === "work" || view === "projects") {
+      document.documentElement.setAttribute("data-view", view);
+    }
+    var picked = /^#project=([A-Za-z0-9_-]+)$/.exec(location.hash || "");
+    if (picked) {
+      document.documentElement.setAttribute("data-view", "projects");
+      document.documentElement.setAttribute("data-project", picked[1]);
+    }
   } catch (e) {}
 })();
 """.strip()
@@ -451,22 +640,65 @@ _FILTER_SCRIPT = """
   });
 
   var tabs = Array.prototype.slice.call(document.querySelectorAll("[data-view-tab]"));
+  function projectFromHash() {
+    var match = /^#project=([A-Za-z0-9_-]+)$/.exec(location.hash || "");
+    return match ? match[1] : "";
+  }
+  function writeProjectHash(id) {
+    var next = "#project=" + id;
+    if (location.hash === next) return;
+    try { history.replaceState(null, "", next); } catch (e) {}
+  }
+  function clearProjectHash() {
+    if ((location.hash || "").indexOf("#project=") !== 0) return;
+    try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+  }
+  function applyProject(id) {
+    var panels = document.querySelectorAll("[data-project-panel]");
+    var buttons = document.querySelectorAll("[data-project-nav]");
+    if (!panels.length) return "";
+    var known = false;
+    panels.forEach(function (panel) {
+      if (panel.getAttribute("data-project-panel") === id) known = true;
+    });
+    if (!known) id = panels[0].getAttribute("data-project-panel");
+    root.setAttribute("data-project", id);
+    panels.forEach(function (panel) {
+      panel.hidden = panel.getAttribute("data-project-panel") !== id;
+    });
+    buttons.forEach(function (btn) {
+      var on = btn.getAttribute("data-project-nav") === id;
+      btn.classList.toggle("on", on);
+      btn.setAttribute("aria-selected", on ? "true" : "false");
+      btn.tabIndex = on ? 0 : -1;
+    });
+    return id;
+  }
   function applyView(name) {
-    var ops = name === "ops";
-    root.setAttribute("data-view", ops ? "ops" : "work");
-    try { localStorage.setItem("worklog-view", ops ? "ops" : "work"); } catch (e) {}
-    var work = document.getElementById("view-work");
-    var panel = document.getElementById("view-ops");
-    if (work) work.hidden = ops;
-    if (panel) panel.hidden = !ops;
+    if (name !== "work" && name !== "ops" && name !== "projects") name = "work";
+    root.setAttribute("data-view", name);
+    try { localStorage.setItem("worklog-view", name); } catch (e) {}
+    ["work", "ops", "projects"].forEach(function (id) {
+      var panel = document.getElementById("view-" + id);
+      if (panel) panel.hidden = id !== name;
+    });
     tabs.forEach(function (tab) {
-      var on = tab.getAttribute("data-view-tab") === (ops ? "ops" : "work");
+      var on = tab.getAttribute("data-view-tab") === name;
       tab.classList.toggle("on", on);
       tab.setAttribute("aria-selected", on ? "true" : "false");
       tab.tabIndex = on ? 0 : -1;
     });
+    if (name === "projects") {
+      var picked = applyProject(projectFromHash() || root.getAttribute("data-project") || "");
+      if (picked) writeProjectHash(picked);
+      else clearProjectHash();
+    } else {
+      clearProjectHash();
+    }
   }
-  applyView(root.getAttribute("data-view") === "ops" ? "ops" : "work");
+  var initial = root.getAttribute("data-view");
+  if (initial !== "work" && initial !== "ops" && initial !== "projects") initial = "work";
+  applyView(initial);
   tabs.forEach(function (tab, index) {
     tab.addEventListener("click", function () {
       applyView(tab.getAttribute("data-view-tab") || "work");
@@ -479,6 +711,28 @@ _FILTER_SCRIPT = """
       applyView(target.getAttribute("data-view-tab") || "work");
       target.focus();
     });
+  });
+  document.querySelectorAll("[data-project-nav]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var id = applyProject(btn.getAttribute("data-project-nav") || "");
+      if (id) writeProjectHash(id);
+    });
+    btn.addEventListener("keydown", function (event) {
+      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+      event.preventDefault();
+      var buttons = Array.prototype.slice.call(document.querySelectorAll("[data-project-nav]"));
+      var index = buttons.indexOf(btn);
+      var next = event.key === "ArrowDown" ? (index + 1) % buttons.length : (index - 1 + buttons.length) % buttons.length;
+      var target = buttons[next];
+      var id = applyProject(target.getAttribute("data-project-nav") || "");
+      if (id) writeProjectHash(id);
+      target.focus();
+    });
+  });
+  window.addEventListener("hashchange", function () {
+    var id = projectFromHash();
+    if (!id) return;
+    applyView("projects");
   });
 })();
 """.strip()
@@ -510,6 +764,9 @@ _CSS = """
   --a3: #6d4ea3;
   --a4: #8a5a00;
   --a5: #3d5a5b;
+  --nav: #f7f4ee;
+  --nav-on: #ece6d8;
+  --glass: #fffcf7;
   color-scheme: light;
 }
 html[data-theme="dark"] {
@@ -538,6 +795,9 @@ html[data-theme="dark"] {
   --a3: #d0b6f0;
   --a4: #f0c36a;
   --a5: #b7d0d0;
+  --nav: #1a1916;
+  --nav-on: #2c2a26;
+  --glass: #24231f;
   color-scheme: dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -567,6 +827,9 @@ html[data-theme="dark"] {
     --a3: #d0b6f0;
     --a4: #f0c36a;
     --a5: #b7d0d0;
+    --nav: #1a1916;
+    --nav-on: #2c2a26;
+    --glass: #24231f;
     color-scheme: dark;
   }
 }
@@ -574,6 +837,10 @@ html[data-theme="dark"] {
 [hidden] { display: none !important; }
 html[data-view="ops"] #view-work { display: none !important; }
 html[data-view="ops"] #view-ops { display: block !important; }
+html[data-view="projects"] #view-work { display: none !important; }
+html[data-view="projects"] #view-ops { display: none !important; }
+html[data-view="projects"] #view-projects { display: block !important; }
+html:not([data-project]) .proj-detail:first-of-type { display: block !important; }
 html, body { margin: 0; }
 body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
@@ -740,6 +1007,191 @@ a { color: var(--link); text-underline-offset: 2px; }
 .m a { margin-right: 8px; }
 .empty, .empty-page { color: var(--muted); font-size: 13px; margin: 4px 0 8px; }
 .empty-page { font-size: 15px; margin-top: 12px; }
+.projects { background: transparent; border: 0; padding: 0; }
+.proj-shell {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.proj-nav {
+  background: var(--nav);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 12px 8px;
+  position: sticky;
+  top: 12px;
+}
+.proj-kicker {
+  margin: 2px 10px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.proj-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink);
+  border-radius: 10px;
+  padding: 8px 8px;
+  font: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.proj-item .nm {
+  flex: 1;
+  min-width: 0;
+  font-weight: 620;
+  line-height: 1.25;
+}
+.proj-item .mini {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  flex: none;
+}
+.proj-item.on,
+html:not([data-project]) .proj-nav .proj-item:first-of-type {
+  background: var(--nav-on);
+  border-color: var(--line);
+}
+.proj-main { min-width: 0; padding: 6px 8px 10px; }
+.proj-title {
+  font-size: 34px;
+  line-height: 1.08;
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  margin: 0 0 14px;
+}
+.state-card {
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--a2);
+  border-radius: 16px;
+  padding: 16px 18px;
+  margin: 0 0 12px;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ink) 5%, transparent);
+}
+.state-card.waiting { border-left-color: var(--a4); }
+.state-card.blocked { border-left-color: var(--a0); }
+.state-card.parked { border-left-color: var(--muted); }
+.eyebrow {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.state-card .state {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.45;
+  font-weight: 520;
+  text-wrap: pretty;
+}
+.proj-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.sp {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.3;
+  border-radius: 999px;
+  padding: 3px 9px 3px 7px;
+  background: var(--other-bg);
+  color: var(--other-ink);
+}
+.sp .dot { width: 7px; height: 7px; background: currentColor; box-shadow: none; }
+.sp.active { background: var(--done-bg); color: var(--done-ink); }
+.sp.waiting { background: var(--waiting-bg); color: var(--waiting-ink); }
+.sp.blocked { background: var(--other-bg); color: var(--a0); }
+.sp.parked { background: var(--other-bg); color: var(--muted); }
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+  flex: none;
+  background: var(--muted);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--muted) 22%, transparent);
+}
+.dot.active { background: var(--a2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--a2) 22%, transparent); }
+.dot.waiting { background: var(--a4); box-shadow: 0 0 0 3px color-mix(in srgb, var(--a4) 22%, transparent); }
+.dot.blocked { background: var(--a0); box-shadow: 0 0 0 3px color-mix(in srgb, var(--a0) 22%, transparent); }
+.dot.parked { background: var(--muted); }
+.proj-main h3 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.proj-links { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
+.proj-links a {
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 12px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 620;
+}
+.proj-links a::after { content: "↗"; font-size: 11px; margin-left: 6px; color: var(--muted); }
+.proj-links a:hover { border-color: var(--ink); }
+.metrics { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 18px; }
+.metric {
+  flex: 1 1 140px;
+  max-width: 220px;
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+.metric .k { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+.metric .v { font-size: 20px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.2; }
+.timeline { list-style: none; margin: 0; padding: 0; }
+.timeline li {
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr);
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+.timeline li:first-child { border-top: 0; padding-top: 0; }
+.timeline time {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  padding-top: 2px;
+}
+.timeline time::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 8px;
+  border-radius: 99px;
+  background: var(--a0);
+  vertical-align: 1px;
+}
+.timeline .what { font-size: 14px; line-height: 1.4; }
 @media (max-width: 1100px) {
   .n3, .n4, .n5, .n6 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 }
@@ -748,5 +1200,9 @@ a { color: var(--link); text-underline-offset: 2px; }
   .top { flex-wrap: wrap; }
   .n1, .n2, .n3, .n4, .n5, .n6 { grid-template-columns: minmax(0, 1fr); }
   .e { grid-template-columns: 76px minmax(0, 1fr); gap: 6px; }
+  .proj-shell { grid-template-columns: minmax(0, 1fr); }
+  .proj-nav { position: static; }
+  .proj-title { font-size: 28px; }
+  .timeline li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
 }
 """.strip()

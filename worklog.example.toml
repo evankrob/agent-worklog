@@ -48,3 +48,24 @@ enabled = false
 # ops_steps = [
 #   "Clone or pull evankrob/seo-skills.",
 # ]
+
+# Optional Projects tab. Omit [[projects]] to keep the built-in own-product list.
+# Set [[projects]] to replace that list. status: active, waiting, blocked, parked.
+# [[projects]]
+# id = "golf-cart-racer"
+# name = "Golf Cart Racer"
+# status = "active"
+# state = "Live. Hole 2 leaderboard ties shipped. Waiting on a profile plan."
+# updated = "2026-10-27"
+#
+# [[projects.links]]
+# label = "Live"
+# href = "https://golfcartrace.com"
+#
+# [[projects.metrics]]
+# label = "Holes"
+# value = "3"
+#
+# [[projects.timeline]]
+# when = "2026-10-27"
+# what = "PR #35 squash-merged"

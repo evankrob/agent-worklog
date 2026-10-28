@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 
 from worklog.config import ConfigError, load_config
 from worklog.ops import default_ops_links, default_ops_steps
+from worklog.projects import default_projects
 from worklog.tomlutil import TomlError, loads
 
 
@@ -194,6 +195,130 @@ paths = ["notes.jsonl"]
                 {"ops_links": [{"label": "x", "href": "https://example.com", "note": "password = hunter2"}], "sources": []},
                 "secret",
             )
+
+    def test_projects_default_and_toml_replacement(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "worklog.toml").write_text(SAMPLE, encoding="utf-8")
+            cfg = load_config(root / "worklog.toml")
+            self.assertEqual(cfg.projects, default_projects())
+            self.assertEqual(cfg.projects[0]["id"], "golf-cart-racer")
+            self.assertIn("Hole 2 leaderboard", cfg.projects[0]["state"])
+            self.assertEqual(cfg.projects[0]["status"], "active")
+            ids = [item["id"] for item in cfg.projects]
+            self.assertEqual(
+                ids,
+                [
+                    "golf-cart-racer",
+                    "what-you-missed",
+                    "seo-notebook",
+                    "openlocalseo",
+                    "computer-poll",
+                    "agent-worklog",
+                    "stayfairly",
+                    "locallab",
+                    "seo-skills",
+                ],
+            )
+            custom = """
+title = "Work Log"
+[[projects]]
+id = "side"
+name = "Side piece"
+status = "Parked"
+state = "Paused until next season."
+updated = "2026-10-01"
+
+[[projects.links]]
+label = "Site"
+href = "https://example.com/side"
+
+[[projects.metrics]]
+label = "Notes"
+value = "1"
+
+[[projects.timeline]]
+when = "2026-10-01"
+what = "Parked it"
+
+[[sources]]
+id = "notes"
+kind = "json"
+paths = ["notes.jsonl"]
+"""
+            (root / "custom.toml").write_text(custom, encoding="utf-8")
+            custom_cfg = load_config(root / "custom.toml")
+            self.assertEqual(
+                custom_cfg.projects,
+                [
+                    {
+                        "id": "side",
+                        "name": "Side piece",
+                        "status": "parked",
+                        "state": "Paused until next season.",
+                        "updated": "2026-10-01",
+                        "links": [{"label": "Site", "href": "https://example.com/side"}],
+                        "metrics": [{"label": "Notes", "value": "1"}],
+                        "timeline": [{"when": "2026-10-01", "what": "Parked it"}],
+                    }
+                ],
+            )
+            cleared = {"projects": [], "sources": []}
+            (root / "cleared.json").write_text(json.dumps(cleared), encoding="utf-8")
+            cleared_cfg = load_config(root / "cleared.json")
+            self.assertEqual(cleared_cfg.projects, [])
+
+    def test_rejects_unsafe_projects(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / "worklog.json"
+
+            def check(projects, fragment):
+                path.write_text(json.dumps({"projects": projects, "sources": []}), encoding="utf-8")
+                with self.assertRaises(ConfigError) as caught:
+                    load_config(path)
+                self.assertIn(fragment, str(caught.exception))
+
+            good = {
+                "id": "side",
+                "name": "Side",
+                "status": "active",
+                "state": "Fine.",
+            }
+            check("nope", "projects")
+            check([{**good, "status": "done"}], "status")
+            check([{**good, "id": "bad id"}], "id")
+            check([good, dict(good)], "unique")
+            check([{**good, "state": ""}], "state")
+            check([{**good, "updated": "2026-13-01"}], "updated")
+            check(
+                [{**good, "links": [{"label": "x", "href": "javascript:alert(1)"}]}],
+                "href",
+            )
+            check(
+                [{**good, "links": [{"label": "x", "href": "https://user:pw@example.com/a"}]}],
+                "href",
+            )
+            check(
+                [{**good, "state": "password = hunter2"}],
+                "secret",
+            )
+            check(
+                [
+                    {
+                        **good,
+                        "links": [
+                            {
+                                "label": "Commit",
+                                "href": "https://github.com/evankrob/agent-worklog/commit/43c98538a0a4b547b3ac6299987fe9f31c8b23d6",
+                            }
+                        ],
+                    }
+                ],
+                "secret",
+            )
+            check([{**good, "metrics": [{"label": "N", "value": 3}]}], "value")
+            check([{**good, "timeline": [{"when": "yesterday", "what": "Shipped"}]}], "when")
 
     def test_tilde_expands(self):
         with TemporaryDirectory() as tmp:

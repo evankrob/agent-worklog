@@ -32,7 +32,7 @@ python3 -m worklog serve
 - Day groups, newest first, with **Today** and **Yesterday** labeled in the machine's timezone.
 - Status badges (`done`, `waiting on you`, `in progress`), the agent or role, and links to deliverables.
 - A light theme and a dark theme. The first paint follows the system setting. The button on the page remembers your choice in `localStorage`.
-- **Work** and **SEO Ops** tabs on the same page. Work is the log. SEO Ops lists the SEO repos (they open in a new tab), the OpenLocalSEO install commands, and a numbered guide for the seo-skills audit pipeline. The selected tab is stored in `localStorage` (`worklog-view`). The browser extension still opens this one `index.html`.
+- **Work**, **SEO Ops**, and **Projects** tabs on the same page. Work is the log. SEO Ops lists the SEO repos (they open in a new tab), the OpenLocalSEO install commands, and a numbered guide for the seo-skills audit pipeline. Projects is a status board for your own products (not client work): a left-hand list, then the current state, links, metrics, and a short timeline. The selected tab is stored in `localStorage` (`worklog-view`: `work`, `ops`, or `projects`). A `#project=<id>` link opens that project. The browser extension still opens this one `index.html`.
 
 There is no total of sessions, files, or entries at the top.
 
@@ -94,6 +94,33 @@ ops_steps = [
   "Clone or pull evankrob/seo-skills, then pip install -r requirements.txt.",
 ]
 ```
+
+`projects` is optional too. Leave it out and the Projects tab uses the built-in list of own products shipped with this repo (Golf Cart Racer, What You Missed, SEO Notebook, OpenLocalSEO, The Computer Poll, Agent Worklog, StayFairly, LocalLab, and seo-skills). Set `[[projects]]` to replace that list. An empty list clears the tab. This board is for your own work, not client projects.
+
+Each project needs `id` (letters, numbers, `_`, or `-`), `name`, `status` (`active`, `waiting`, `blocked`, or `parked`), and `state` (one to three sentences: where you left off). `updated` is an optional `YYYY-MM-DD` date. `links`, `metrics`, and `timeline` are optional lists; empty ones are left off the page. A link `href` must be `http` or `https`. A value that looks like a secret is a config error, same as `ops_links`. Quote dates and metric values. The TOML reader has no inline tables, so nest links, metrics, and timeline as arrays of tables.
+
+```toml
+[[projects]]
+id = "golf-cart-racer"
+name = "Golf Cart Racer"
+status = "active"
+state = "Live. Hole 2 leaderboard ties shipped. Waiting on a profile plan."
+updated = "2026-10-27"
+
+[[projects.links]]
+label = "Live"
+href = "https://golfcartrace.com"
+
+[[projects.metrics]]
+label = "Holes"
+value = "3"
+
+[[projects.timeline]]
+when = "2026-10-27"
+what = "PR #35 squash-merged"
+```
+
+Open a project directly with `#project=golf-cart-racer`. Arrow keys move across the three tabs. Up and down move through the project list.
 
 ## A log any agent can append
 
