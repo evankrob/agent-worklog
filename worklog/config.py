@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from worklog.ops import OpsError, default_ops_links, default_ops_steps, normalize_ops_links, normalize_ops_steps
+from worklog.projects import ProjectsError, default_projects, normalize_projects
 from worklog.redact import compile_excludes
 from worklog.tomlutil import TomlError, loads as load_toml
 
@@ -45,6 +46,7 @@ class Config:
     exclude_res: list = field(default_factory=list)
     ops_links: list = field(default_factory=list)
     ops_steps: list = field(default_factory=list)
+    projects: list = field(default_factory=list)
 
     def source(self, source_id: str) -> Source | None:
         for item in self.sources:
@@ -144,7 +146,11 @@ def _build(path: Path, data: dict) -> Config:
             ops_steps = normalize_ops_steps(data.get("ops_steps"))
         else:
             ops_steps = default_ops_steps()
-    except OpsError as exc:
+        if "projects" in data:
+            projects = normalize_projects(data.get("projects"))
+        else:
+            projects = default_projects()
+    except (OpsError, ProjectsError) as exc:
         raise ConfigError(str(exc)) from exc
 
     cfg = Config(
@@ -161,6 +167,7 @@ def _build(path: Path, data: dict) -> Config:
         exclude_res=exclude_res,
         ops_links=ops_links,
         ops_steps=ops_steps,
+        projects=projects,
     )
     return cfg
 

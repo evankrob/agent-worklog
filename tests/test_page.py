@@ -222,6 +222,79 @@ class RenderTests(unittest.TestCase):
         self.assertLess(html.index('id="view-work"'), html.index('id="view-ops"'))
         self.assertLess(html.index('id="tab-work"'), html.index('id="view-work"'))
 
+    def test_projects_tab_shows_state_and_three_views(self):
+        html = render_html(_doc([]))
+        for tab in ("work", "ops", "projects"):
+            self.assertIn('id="tab-%s"' % tab, html)
+            self.assertIn('id="view-%s"' % tab, html)
+            self.assertIn('data-view-tab="%s"' % tab, html)
+        self.assertLess(html.index('id="tab-ops"'), html.index('id="tab-projects"'))
+        self.assertLess(html.index('id="view-ops"'), html.index('id="view-projects"'))
+        self.assertIn(">Projects<", html)
+        self.assertIn("Golf Cart Racer", html)
+        self.assertIn("Hole 2 leaderboard ties", html)
+        self.assertIn('href="https://golfcartrace.com"', html)
+        self.assertIn('data-project-nav="what-you-missed"', html)
+        self.assertIn(">blocked<", html)
+        self.assertIn(">parked<", html)
+        self.assertIn("Current state", html)
+        self.assertIn('class="metrics"', html)
+        self.assertIn('class="timeline"', html)
+        self.assertIn("Oct 27, 2026", html)
+        self.assertIn('html[data-view="projects"]', html)
+        self.assertIn('html[data-project="golf-cart-racer"] [data-project-panel="golf-cart-racer"]', html)
+        self.assertIn('if (name !== "work" && name !== "ops" && name !== "projects") name = "work";', html)
+        self.assertIn('localStorage.setItem("worklog-view", name)', html)
+        self.assertIn('view === "projects"', html)
+        self.assertIn('"#project="', html)
+        self.assertIn("ArrowRight", html)
+        self.assertIn("ArrowLeft", html)
+        self.assertIn("% tabs.length", html)
+        self.assertNotIn('ops ? "ops"', html)
+        self.assertNotIn("43c98538a0a4b547b3ac6299987fe9f31c8b23d6", html)
+        body = html.split("<body", 1)[1]
+        quiet = body.split('id="project-locallab"', 1)[1].split("</article>", 1)[0]
+        self.assertIn("review-gathering", quiet)
+        self.assertNotIn("proj-links", quiet)
+        self.assertNotIn("metrics", quiet)
+        self.assertNotIn("timeline", quiet)
+        stayed = body.split('id="project-stayfairly"', 1)[1].split("</article>", 1)[0]
+        self.assertIn("Paid Supabase", stayed)
+        self.assertNotIn("proj-links", stayed)
+        self.assertNotIn("timeline", stayed)
+        self.assertIn('class="metrics"', stayed)
+
+    def test_custom_projects_replace_defaults_and_escape(self):
+        doc = _doc([])
+        doc["projects"] = [
+            {
+                "id": "side",
+                "name": "Side <project>",
+                "status": "blocked",
+                "state": "Paused <b>now</b>.",
+                "updated": "2026-10-02",
+                "links": [{"label": "Site", "href": "https://example.com/side"}],
+                "metrics": [{"label": "Notes", "value": "1"}],
+                "timeline": [{"when": "2026-10-02", "what": "Parked <i>it</i>"}],
+            }
+        ]
+        html = render_html(doc)
+        self.assertIn("Side &lt;project&gt;", html)
+        self.assertIn("Paused &lt;b&gt;now&lt;/b&gt;.", html)
+        self.assertIn("Parked &lt;i&gt;it&lt;/i&gt;", html)
+        self.assertNotIn("<b>now</b>", html)
+        self.assertNotIn("Golf Cart Racer", html)
+        self.assertIn('href="https://example.com/side"', html)
+        self.assertIn('target="_blank"', html)
+        self.assertIn('rel="noopener noreferrer"', html)
+        self.assertIn("Updated Oct 2, 2026", html)
+        self.assertIn(">blocked<", html)
+        empty = render_html({**_doc([]), "projects": []})
+        section = empty.split('id="view-projects"', 1)[1].split("</section>", 1)[0]
+        self.assertIn("No projects in the config.", section)
+        self.assertNotIn("proj-nav", section)
+        self.assertNotIn("Golf Cart Racer", empty)
+
 
 class BuildAndServeTests(unittest.TestCase):
     def test_demo_pipeline_strips_private_content_and_copies_files(self):
@@ -247,10 +320,15 @@ class BuildAndServeTests(unittest.TestCase):
             self.assertNotIn("/home/demo/", html)
             self.assertNotIn("Waiting on you (", html)
             self.assertIn('id="tab-ops"', html)
+            self.assertIn('id="tab-projects"', html)
+            self.assertIn("Golf Cart Racer", html)
+            self.assertIn("Hole 2 leaderboard ties", html)
             self.assertIn("https://github.com/evankrob/seo-skills", html)
             self.assertIn("https://github.com/evankrob/openlocalseo", html)
             self.assertIn("https://github.com/evankrob/agent-worklog", html)
             self.assertIn("build_profile.py", html)
+            self.assertNotIn("golfcartrace.com", log)
+            self.assertNotIn("Golf Cart Racer", log)
 
     def test_custom_ops_links_replace_the_default_list(self):
         with TemporaryDirectory() as tmp:
@@ -280,6 +358,8 @@ class BuildAndServeTests(unittest.TestCase):
             self.assertNotIn("<b>markup</b>", html)
             self.assertNotIn("example.com/notes", log)
             self.assertNotIn("ops_links", log)
+            self.assertNotIn("golfcartrace.com", log)
+            self.assertIn("Golf Cart Racer", html)
 
     def test_traversal_is_not_copied(self):
         with TemporaryDirectory() as tmp:

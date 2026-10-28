@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import shutil
 from pathlib import Path
 
@@ -24,6 +25,7 @@ def build_site(cfg: Config, now=None) -> Path:
     # UI config, not part of the redacted log written beside the page.
     document["ops_links"] = [dict(item) for item in cfg.ops_links]
     document["ops_steps"] = list(cfg.ops_steps)
+    document["projects"] = copy.deepcopy(cfg.projects)
     page = render_html(document)
     (destination / "index.html").write_text(page, encoding="utf-8")
     public = {
