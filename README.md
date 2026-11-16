@@ -6,6 +6,14 @@ The page is a static file. The tool that builds it is Python 3.9+ and the standa
 
 ![Work Log on a desktop browser and a phone, built from the fictional demo](docs/preview.png)
 
+**Projects** is the status board for your own products. This shot is the built-in list from the demo, with Golf Cart Racer open.
+
+![Projects tab on the demo, with the list, current state, links, metrics, and timeline](docs/preview-projects.png)
+
+![Switching from the Work tab to Projects, then opening What You Missed](docs/preview-projects.gif)
+
+Launch drafts for this tab are in [docs/launch-projects](docs/launch-projects/README.md).
+
 ## Quick start
 
 ```bash
